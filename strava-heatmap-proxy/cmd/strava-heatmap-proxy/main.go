@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -225,23 +226,18 @@ func main() {
 		req.Host = target.Host
 		
 	    if param.Arguments != nil && *param.Arguments != "" {
+			req.URL.Path = strings.TrimSuffix(req.URL.Path, ".png")
+			req.URL.RawQuery = "" 
 	        args := *param.Arguments
 	        
 	        if strings.Contains(args, "?") {
-	            // parts[0] is "@2x.png", parts[1] is the long query string
+	            // Split args into path extension (e.g., @2x.png) and query (e.g., v=20&style=dark)
 	            parts := strings.SplitN(args, "?", 2)
 	            
-	            // Append @2x.png to the path
 	            req.URL.Path = req.URL.Path + parts[0]
-	            
-	            // Merge the long query string with any existing queries
-	            if req.URL.RawQuery == "" {
-	                req.URL.RawQuery = parts[1]
-	            } else {
-	                req.URL.RawQuery = req.URL.RawQuery + "&" + parts[1]
-	            }
+	            req.URL.RawQuery = parts[1]
 	        } else {
-	            // If no '?', just append the whole thing to the path
+	            // If no '?', just append the custom extension/suffix provided
 	            req.URL.Path = req.URL.Path + args
 	        }
 	    }
