@@ -6,6 +6,8 @@ on:
     paths:
       - ".github/workflows/**"
       - "strava-heatmap-proxy/**"
+      
+  workflow_dispatch: # This adds the "Run workflow" button
 
 jobs:
   cd:
