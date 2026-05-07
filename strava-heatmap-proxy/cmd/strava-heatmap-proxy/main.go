@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,6 +23,7 @@ type Param struct {
 	CookiesFile  *string
 	Port         *string
 	Target       *string
+	Arguments    *string
 	AllowOrigins *string
 	NoInit       *bool
 	Verbose      *bool
@@ -39,6 +41,7 @@ func getParam() *Param {
 		CookiesFile:  flag.String("cookies", cookiesfile, "Path to the cookies file"),
 		Port:         flag.String("port", "8080", "Local proxy port"),
 		Target:       flag.String("target", "https://content-a.strava.com/", "Heatmap provider URL"),
+		Arguments:    flag.String("Arguments", "", "Argument after [z]"),
 		AllowOrigins: flag.String("allow-origins", "", "JSON array of allowed CORS origins, e.g. '[\"https://a\",\"https://b\"]'"),
 		NoInit:       flag.Bool("no-init", false, "Don't try to refresh CloudFront cookies on startup"),
 		Verbose:      flag.Bool("verbose", false, "Verbose logging"),
@@ -221,6 +224,24 @@ func main() {
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		req.Host = target.Host
+		
+	    if param.Arguments != nil && *param.Arguments != "" {
+			req.URL.Path = strings.TrimSuffix(req.URL.Path, ".png")
+			req.URL.RawQuery = "" 
+	        args := *param.Arguments
+	        
+	        if strings.Contains(args, "?") {
+	            // Split args into path extension (e.g., @2x.png) and query (e.g., v=20&style=dark)
+	            parts := strings.SplitN(args, "?", 2)
+	            
+	            req.URL.Path = req.URL.Path + parts[0]
+	            req.URL.RawQuery = parts[1]
+	        } else {
+	            // If no '?', just append the custom extension/suffix provided
+	            req.URL.Path = req.URL.Path + args
+	        }
+	    }
+		
 		// refresh expired CloudFront cookies before forwarding the request
 		if client.cloudFrontCookiesExpiration.IsZero() || time.Now().After(client.cloudFrontCookiesExpiration) {
 			log.Printf("CloudFront cookies have expired, refreshing...")
