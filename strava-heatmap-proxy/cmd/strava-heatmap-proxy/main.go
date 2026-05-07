@@ -225,24 +225,25 @@ func main() {
 		req.URL.Host = target.Host
 		req.Host = target.Host
 
+		// Join the target's base path with the incoming request path
+		// This ensures /tiles/784838/grayscale/ isn't lost
+		req.URL.Path = path.Join(target.Path, req.URL.Path)
+
 		if param.Arguments != nil && *param.Arguments != "" {
 			req.URL.Path = strings.TrimSuffix(req.URL.Path, ".png")
 			req.URL.RawQuery = ""
 			args := *param.Arguments
 
 			if strings.Contains(args, "?") {
-				// Split args into path extension (e.g., @2x.png) and query (e.g., v=20&style=dark)
 				parts := strings.SplitN(args, "?", 2)
-
 				req.URL.Path = req.URL.Path + parts[0]
 				req.URL.RawQuery = parts[1]
 			} else {
-				// If no '?', just append the custom extension/suffix provided
 				req.URL.Path = req.URL.Path + args
 			}
 		}
 
-		// refresh expired CloudFront cookies before forwarding the request
+		// Refresh expired CloudFront cookies...
 		if client.cloudFrontCookiesExpiration.IsZero() || time.Now().After(client.cloudFrontCookiesExpiration) {
 			log.Printf("CloudFront cookies have expired, refreshing...")
 			if err := client.fetchCloudFrontCookies(); err != nil {
@@ -253,9 +254,10 @@ func main() {
 			req.AddCookie(c)
 		}
 		if *param.Verbose {
-			log.Printf("Got request: %s", req.URL)
+			log.Printf("Forwarding to: %s", req.URL.String())
 		}
 	}
+
 
 
 	proxy := &httputil.ReverseProxy{
