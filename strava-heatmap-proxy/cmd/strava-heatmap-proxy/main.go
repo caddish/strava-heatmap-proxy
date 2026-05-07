@@ -97,33 +97,25 @@ func (c *StravaSessionClient) readCloudFrontCookiesFromFile(entries []cookieEntr
 	var expiration int64
 
 	for _, entry := range entries {
-		switch entry.Name {
-		case "CloudFront-Signature", "CloudFront-Policy", "CloudFront-Key-Pair-Id", "_strava_idcf":
+			// Add EVERY cookie found in the file, regardless of name
 			cookies = append(cookies, &http.Cookie{
 				Name:  entry.Name,
 				Value: entry.Value,
 			})
-		case "_strava_CloudFront-Expires":
-			var err error
-			expiration, err = strconv.ParseInt(entry.Value, 10, 64)
-			if err != nil {
-				log.Printf("Invalid timestamp value for %s: %s", entry.Name, entry.Value)
-			}
 		}
-	}
 
-	if len(cookies) < 4 {
-		return fmt.Errorf("not all required CloudFront cookies found in file")
-	}
+		if len(cookies) < 4 {
+			return fmt.Errorf("not all required CloudFront cookies found in file")
+		}
 
-	c.cloudFrontCookies = cookies
-	if expiration != 0 {
-		c.cloudFrontCookiesExpiration = time.UnixMilli(expiration)
-		log.Printf("CloudFront cookies from file will expire at %s", c.cloudFrontCookiesExpiration)
-	}
+		c.cloudFrontCookies = cookies
+		if expiration != 0 {
+			c.cloudFrontCookiesExpiration = time.UnixMilli(expiration)
+			log.Printf("CloudFront cookies from file will expire at %s", c.cloudFrontCookiesExpiration)
+		}
 
-	return nil
-}
+		return nil
+	}
 
 func parseAllowedOrigins(allowedOrigins string) (map[string]struct{}, error) {
 	var urls []string
@@ -225,6 +217,8 @@ func main() {
 		req.URL.Host = target.Host
 		req.Host = target.Host
 
+    	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+    	req.Header.Set("X-Forwarded-Proto", "https")
 		// Join the target's base path with the incoming request path
 		// This ensures /tiles/784838/grayscale/ isn't lost
 		req.URL.Path = path.Join(target.Path, req.URL.Path)
