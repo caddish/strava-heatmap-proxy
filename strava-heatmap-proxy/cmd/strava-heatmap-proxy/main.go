@@ -41,7 +41,7 @@ func getParam() *Param {
 		CookiesFile:  flag.String("cookies", cookiesfile, "Path to the cookies file"),
 		Port:         flag.String("port", "8080", "Local proxy port"),
 		Target:       flag.String("target", "https://content-a.strava.com/", "Heatmap provider URL"),
-		Arguments:    flag.String("Arguments", "", "Argument after [z]"),
+		Arguments:    flag.String("arguments", "", "Argument after [z]"),
 		AllowOrigins: flag.String("allow-origins", "", "JSON array of allowed CORS origins, e.g. '[\"https://a\",\"https://b\"]'"),
 		NoInit:       flag.Bool("no-init", false, "Don't try to refresh CloudFront cookies on startup"),
 		Verbose:      flag.Bool("verbose", false, "Verbose logging"),
@@ -97,25 +97,37 @@ func (c *StravaSessionClient) readCloudFrontCookiesFromFile(entries []cookieEntr
 	var expiration int64
 
 	for _, entry := range entries {
-			// Add EVERY cookie found in the file, regardless of name
-			cookies = append(cookies, &http.Cookie{
-				Name:  entry.Name,
-				Value: entry.Value,
-			})
-		}
+		cookies = append(cookies, &http.Cookie{
+			Name:  entry.Name,
+			Value: entry.Value,
+		})
 
-		if len(cookies) < 4 {
-			return fmt.Errorf("not all required CloudFront cookies found in file")
+		// CRITICAL: We must extract the expiration to prevent an immediate refresh
+		if entry.Name == "_strava_CloudFront-Expires" {
+			var err error
+			expiration, err = strconv.ParseInt(entry.Value, 10, 64)
+			if err != nil {
+				log.Printf("Invalid timestamp: %s", entry.Value)
+			}
 		}
-
-		c.cloudFrontCookies = cookies
-		if expiration != 0 {
-			c.cloudFrontCookiesExpiration = time.UnixMilli(expiration)
-			log.Printf("CloudFront cookies from file will expire at %s", c.cloudFrontCookiesExpiration)
-		}
-
-		return nil
 	}
+
+	c.cloudFrontCookies = cookies
+	if expiration != 0 {
+		// Use Unix for seconds, or UnixMilli for milliseconds depending on your cookie source
+		c.cloudFrontCookiesExpiration = time.Unix(expiration, 0) 
+		log.Printf("Cookies loaded. Expiry: %s", c.cloudFrontCookiesExpiration)
+	}
+
+	return nil
+}
+
+func (c *StravaSessionClient) fetchCloudFrontCookies() error {
+	// If you are using personal-heatmaps-external, you shouldn't use this function.
+	// It's safer to just log that we need fresh manual cookies for this domain.
+	log.Printf("Automatic refresh skipped. Please update your strava-cookies.json manually for this domain.")
+	return nil
+}
 
 func parseAllowedOrigins(allowedOrigins string) (map[string]struct{}, error) {
 	var urls []string
@@ -131,54 +143,6 @@ func parseAllowedOrigins(allowedOrigins string) (map[string]struct{}, error) {
 		}
 	}
 	return m, nil
-}
-
-func (c *StravaSessionClient) fetchCloudFrontCookies() error {
-	req, err := http.NewRequest("HEAD", "https://www.strava.com/maps", nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Cookie", fmt.Sprintf("_strava4_session=%s;", c.sessionIdentifier))
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to perform request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	var cookies []*http.Cookie
-	var expiration int64
-
-	for _, cookie := range resp.Cookies() {
-		switch cookie.Name {
-		case "CloudFront-Signature", "CloudFront-Policy", "CloudFront-Key-Pair-Id", "_strava_idcf":
-			if cookie.Value != "" {
-				cookies = append(cookies, cookie)
-			}
-		case "_strava_CloudFront-Expires":
-			expiration, err = strconv.ParseInt(cookie.Value, 10, 64)
-			if err != nil {
-				log.Printf("Invalid timestamp value for %s: %s", cookie.Name, cookie.Value)
-			}
-		}
-	}
-
-	if len(cookies) < 4 {
-		return fmt.Errorf("not all required CloudFront cookies received")
-	}
-
-	c.cloudFrontCookies = cookies
-	if expiration != 0 {
-		c.cloudFrontCookiesExpiration = time.UnixMilli(expiration)
-		log.Printf("New CloudFront cookies will expire at %s", c.cloudFrontCookiesExpiration)
-	}
-
-	return nil
 }
 
 func main() {
