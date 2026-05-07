@@ -228,14 +228,18 @@ func main() {
 		// Join the target's base path with the incoming request path
 		// This ensures /tiles/784838/grayscale/ isn't lost
 		req.URL.Path = path.Join(target.Path, req.URL.Path)
-
+		
 		if param.Arguments != nil && *param.Arguments != "" {
+			// 1. Clean the path by removing the .png extension if it exists
 			req.URL.Path = strings.TrimSuffix(req.URL.Path, ".png")
-			req.URL.RawQuery = ""
+			
+			// 2. Clear the incoming query string (like ?v=19) to avoid conflicts
+			req.URL.RawQuery = "" 
+			
 			args := *param.Arguments
-
 			if strings.Contains(args, "?") {
 				parts := strings.SplitN(args, "?", 2)
+				// Append path extension (e.g., @2x) and then the new query
 				req.URL.Path = req.URL.Path + parts[0]
 				req.URL.RawQuery = parts[1]
 			} else {
