@@ -228,7 +228,7 @@ func main() {
 		// Join the target's base path with the incoming request path
 		// This ensures /tiles/784838/grayscale/ isn't lost
 		req.URL.Path = path.Join(target.Path, req.URL.Path)
-		
+
 		if param.Arguments != nil && *param.Arguments != "" {
 			// 1. Clean the path by removing the .png extension if it exists
 			req.URL.Path = strings.TrimSuffix(req.URL.Path, ".png")
@@ -257,9 +257,14 @@ func main() {
 		for _, c := range client.cloudFrontCookies {
 			req.AddCookie(c)
 		}
+		// --- ADD THIS DEBUG BLOCK ---
 		if *param.Verbose {
-			log.Printf("Forwarding to: %s", req.URL.String())
+			dump, err := httputil.DumpRequestOut(req, false) // 'false' to hide the body for cleaner logs
+			if err == nil {
+				log.Printf("\n--- OUTGOING REQUEST TO STRAVA ---\n%s\n----------------------------------", string(dump))
+			}
 		}
+		// -----------------------------
 	}
 
 
