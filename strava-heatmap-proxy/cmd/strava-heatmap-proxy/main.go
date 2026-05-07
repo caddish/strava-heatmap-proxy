@@ -224,24 +224,24 @@ func main() {
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		req.Host = target.Host
-		
-	    if param.Arguments != nil && *param.Arguments != "" {
+
+		if param.Arguments != nil && *param.Arguments != "" {
 			req.URL.Path = strings.TrimSuffix(req.URL.Path, ".png")
-			req.URL.RawQuery = "" 
-	        args := *param.Arguments
-	        
-	        if strings.Contains(args, "?") {
-	            // Split args into path extension (e.g., @2x.png) and query (e.g., v=20&style=dark)
-	            parts := strings.SplitN(args, "?", 2)
-	            
-	            req.URL.Path = req.URL.Path + parts[0]
-	            req.URL.RawQuery = parts[1]
-	        } else {
-	            // If no '?', just append the custom extension/suffix provided
-	            req.URL.Path = req.URL.Path + args
-	        }
-	    }
-		
+			req.URL.RawQuery = ""
+			args := *param.Arguments
+
+			if strings.Contains(args, "?") {
+				// Split args into path extension (e.g., @2x.png) and query (e.g., v=20&style=dark)
+				parts := strings.SplitN(args, "?", 2)
+
+				req.URL.Path = req.URL.Path + parts[0]
+				req.URL.RawQuery = parts[1]
+			} else {
+				// If no '?', just append the custom extension/suffix provided
+				req.URL.Path = req.URL.Path + args
+			}
+		}
+
 		// refresh expired CloudFront cookies before forwarding the request
 		if client.cloudFrontCookiesExpiration.IsZero() || time.Now().After(client.cloudFrontCookiesExpiration) {
 			log.Printf("CloudFront cookies have expired, refreshing...")
@@ -256,6 +256,7 @@ func main() {
 			log.Printf("Got request: %s", req.URL)
 		}
 	}
+
 
 	proxy := &httputil.ReverseProxy{
 		Director: director,
